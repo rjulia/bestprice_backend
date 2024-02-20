@@ -1,4 +1,5 @@
-import { IsString, IsNumber } from 'class-validator';
+import { IsString, IsNumber, IsObject, IsArray } from 'class-validator';
+import { Brand } from '../entities/brand.entity';
 
 // DTO for creating a product
 export class CreateProductDto {
@@ -8,6 +9,12 @@ export class CreateProductDto {
   @IsString()
   readonly description: string;
 
+  @IsString()
+  readonly comment: string;
+
   @IsNumber()
   readonly price: number;
+
+  @IsArray()
+  readonly brands: Brand[];
 }

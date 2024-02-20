@@ -1,45 +1,28 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Product } from './entities/product.entity';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { CreateProductDto } from './dto/create-product.dto';
+import { Brand } from './entities/brand.entity';
 
 @Injectable()
 export class ProductsService {
-  private products: Product[] = [
-    {
-      id: 1,
-      name: 'Product 1',
-      description: 'Description 1',
-      price: 100,
-    },
-    {
-      id: 2,
-      name: 'Product 2',
-      description: 'Description 2',
-      price: 200,
-    },
-    {
-      id: 3,
-      name: 'Product 3',
-      description: 'Description 3',
-      price: 300,
-    },
-  ];
-
-  /**
-   *  This method creates a new product
-   * @param product
-   */
-
-  create(product: any) {
-    this.products.push(product);
-  }
+  constructor(
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
+    @InjectRepository(Brand)
+    private readonly brandRepository: Repository<Brand>,
+  ) {}
 
   /**
    *  This method returns all products
    * @returns Product[]
    */
   findAll() {
-    return this.products;
+    return this.productRepository.find({
+      relations: ['brands'],
+    });
   }
 
   /**
@@ -48,8 +31,11 @@ export class ProductsService {
    * @returns Product
    */
 
-  findOne(id: number) {
-    const productExit = this.products.find((product) => product.id === id);
+  async findOne(id: number) {
+    const productExit = await this.productRepository.findOne({
+      where: { id: +id },
+      relations: ['brands'],
+    });
 
     if (!productExit) {
       throw new NotFoundException(`Product with id: ${id} not found`);
@@ -59,21 +45,45 @@ export class ProductsService {
   }
 
   /**
+   *  This method creates a new product
+   * @param createProductDto
+   */
+
+  async create(createProductDto: CreateProductDto) {
+    const brands = await Promise.all(
+      createProductDto.brands.map((brand) => this.preloadBrand(brand, null)),
+    );
+    const productEntity = this.productRepository.create({
+      ...createProductDto,
+      brands: brands,
+    });
+    return this.productRepository.save(productEntity);
+  }
+
+  /**
    *  This method updates a product
    * @param id
    * @param product
    * @returns Product
    */
 
-  update(id: number, product: UpdateProductDto) {
-    const existingProduct = this.products.find((product) => product.id === id);
-    if (existingProduct) {
-      existingProduct.name = product.name;
-      existingProduct.description = product.description;
-      existingProduct.price = product.price;
-    }
+  async update(id: string, updateProductDto: UpdateProductDto) {
+    const brands =
+      updateProductDto.brands &&
+      (await Promise.all(
+        updateProductDto.brands.map((brand) => this.preloadBrand(brand, id)),
+      ));
+    const product = await this.productRepository.preload({
+      id: +id,
+      ...updateProductDto,
+      brands,
+    });
 
-    return existingProduct;
+    if (!product) {
+      throw new NotFoundException(`Product with id: ${id} not found`);
+    } else {
+      return this.productRepository.save(product);
+    }
   }
 
   /**
@@ -81,12 +91,27 @@ export class ProductsService {
    * @param id
    */
 
-  remove(id: number) {
-    const productIndex = this.products.findIndex(
-      (product) => product.id === id,
-    );
-    if (productIndex >= 0) {
-      this.products.splice(productIndex, 1);
+  async remove(id: number) {
+    const product = await this.findOne(id);
+
+    return this.productRepository.remove(product);
+  }
+
+  private async preloadBrand(brand: Brand, id: string | null): Promise<Brand> {
+    let brandObj: Brand;
+    if (id) {
+      brandObj = await this.brandRepository.findOne({
+        where: { name: brand.name, products: { id: +id } },
+      });
+      if (brandObj) {
+        const updateBrand = await this.brandRepository.preload({
+          id: +brandObj.id,
+          ...brand,
+        });
+        return this.brandRepository.save(updateBrand);
+      }
     }
+
+    return this.brandRepository.create(brand);
   }
 }

@@ -28,9 +28,9 @@ export class ProductsController {
    **/
 
   @Get()
-  findAll(@Query() paginationQuery): Product[] {
+  async findAll(@Query() paginationQuery): Promise<Product[]> {
     const { limit, offset } = paginationQuery;
-    return this.productsService.findAll();
+    return await this.productsService.findAll();
   }
 
   /**
@@ -42,8 +42,8 @@ export class ProductsController {
    **/
 
   @Get(':id')
-  findOne(@Param('id') id: string): Product {
-    return this.productsService.findOne(+id);
+  async findOne(@Param('id') id: string): Promise<Product> {
+    return await this.productsService.findOne(+id);
   }
 
   /**
@@ -67,11 +67,11 @@ export class ProductsController {
    **/
 
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
-  ): Product {
-    return this.productsService.update(+id, updateProductDto);
+  ): Promise<Product> {
+    return await this.productsService.update(id, updateProductDto);
   }
 
   /**
