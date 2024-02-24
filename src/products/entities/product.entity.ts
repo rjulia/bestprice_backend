@@ -2,7 +2,6 @@ import {
   Column,
   Entity,
   JoinTable,
-  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -24,6 +23,9 @@ export class Product {
 
   @Column('decimal')
   price: number;
+
+  @Column({ default: 0 })
+  recommendations: number;
 
   @JoinTable()
   @OneToMany(() => Brand, (brand) => brand.products, {

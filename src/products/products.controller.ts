@@ -14,6 +14,7 @@ import { ProductsService } from './products.service';
 import { Product } from './entities/product.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto/pagination-query.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -28,9 +29,11 @@ export class ProductsController {
    **/
 
   @Get()
-  async findAll(@Query() paginationQuery): Promise<Product[]> {
-    const { limit, offset } = paginationQuery;
-    return await this.productsService.findAll();
+  async findAll(
+    @Query() paginationQuery: PaginationQueryDto,
+  ): Promise<Product[]> {
+    // const { limit, offset } = paginationQuery;
+    return await this.productsService.findAll(paginationQuery);
   }
 
   /**

@@ -2,10 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Product } from './entities/product.entity';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CreateProductDto } from './dto/create-product.dto';
 import { Brand } from './entities/brand.entity';
-
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto/pagination-query.dto';
+import { Event } from 'src/events/entities/event.entity';
 @Injectable()
 export class ProductsService {
   constructor(
@@ -13,15 +14,18 @@ export class ProductsService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Brand)
     private readonly brandRepository: Repository<Brand>,
+    private readonly dataSources: DataSource,
   ) {}
 
   /**
    *  This method returns all products
    * @returns Product[]
    */
-  findAll() {
+  findAll(paginationQuery: PaginationQueryDto) {
     return this.productRepository.find({
       relations: ['brands'],
+      take: paginationQuery.limit,
+      skip: paginationQuery.offset,
     });
   }
 
@@ -95,6 +99,29 @@ export class ProductsService {
     const product = await this.findOne(id);
 
     return this.productRepository.remove(product);
+  }
+
+  async recommendProduct(product: Product) {
+    const queryRunner = this.dataSources.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      product.recommendations++;
+      const recommendEvent = new Event();
+      recommendEvent.name = 'recommend_product';
+      recommendEvent.type = 'product';
+      recommendEvent.payload = { productId: product.id };
+
+      await queryRunner.manager.save(recommendEvent);
+      await queryRunner.manager.save(product);
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   private async preloadBrand(brand: Brand, id: string | null): Promise<Brand> {
